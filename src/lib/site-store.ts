@@ -1,42 +1,33 @@
-// Simple localStorage-backed site settings + content store.
-// All defaults are only used until the user saves anything in 后台.
+// Cloud-backed site settings. Reads via supabase RLS (public read).
+import { supabase } from "@/integrations/supabase/client";
 
 export interface SiteSettings {
-  siteName: string;
-  logo: string; // data URL or http url
-  heroTitle: string;
+  site_name: string;
+  logo: string;
+  hero_title: string;
   subtitle: string;
-  contentHtml: string;
 }
-
-const KEY = "geek-resource-site:v1";
 
 export const DEFAULT_SETTINGS: SiteSettings = {
-  siteName: "极客软件馆",
+  site_name: "极客软件馆",
   logo: "",
-  heroTitle: "软件目录",
-  subtitle: "精选软件、网站与教程，点击名称即可查看对应文章，文章底部免费获取软件！",
-  contentHtml: "",
+  hero_title: "软件目录",
+  subtitle: "精选软件、网站与教程",
 };
 
-export function loadSettings(): SiteSettings {
-  if (typeof window === "undefined") return DEFAULT_SETTINGS;
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return DEFAULT_SETTINGS;
-    const parsed = JSON.parse(raw);
-    return { ...DEFAULT_SETTINGS, ...parsed };
-  } catch {
-    return DEFAULT_SETTINGS;
-  }
+export async function fetchSettings(): Promise<SiteSettings> {
+  const { data } = await supabase
+    .from("site_settings")
+    .select("site_name, logo, hero_title, subtitle")
+    .eq("id", 1)
+    .maybeSingle();
+  return data ?? DEFAULT_SETTINGS;
 }
 
-export function saveSettings(s: SiteSettings) {
-  localStorage.setItem(KEY, JSON.stringify(s));
-  window.dispatchEvent(new CustomEvent("site-settings-updated"));
-}
-
-export function hasCustomSettings(): boolean {
-  if (typeof window === "undefined") return false;
-  return localStorage.getItem(KEY) !== null;
+export async function updateSettings(s: SiteSettings) {
+  const { error } = await supabase
+    .from("site_settings")
+    .update({ ...s, updated_at: new Date().toISOString() })
+    .eq("id", 1);
+  if (error) throw error;
 }
