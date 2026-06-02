@@ -41,7 +41,7 @@ export async function createNote(content: string, published = true) {
 }
 
 export async function updateNote(id: string, patch: Partial<Pick<Note, "content" | "published">>) {
-  const updates: Record<string, unknown> = { ...patch };
+  const updates: { content?: string; published?: boolean; tags?: string[] } = { ...patch };
   if (patch.content !== undefined) updates.tags = extractTags(patch.content);
   const { error } = await supabase.from("notes").update(updates).eq("id", id);
   if (error) throw error;
