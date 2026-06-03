@@ -1,5 +1,4 @@
 import { supabase } from "@/integrations/supabase/client";
-import { extractTags } from "./tags";
 
 export interface Note {
   id: string;
@@ -29,8 +28,7 @@ export async function fetchNotes(opts: { includeUnpublished?: boolean } = {}) {
   return (data ?? []) as Note[];
 }
 
-export async function createNote(content: string, published = true) {
-  const tags = extractTags(content);
+export async function createNote(content: string, tags: string[] = [], published = true) {
   const { data, error } = await supabase
     .from("notes")
     .insert({ content, tags, published })
@@ -40,10 +38,11 @@ export async function createNote(content: string, published = true) {
   return data as Note;
 }
 
-export async function updateNote(id: string, patch: Partial<Pick<Note, "content" | "published">>) {
-  const updates: { content?: string; published?: boolean; tags?: string[] } = { ...patch };
-  if (patch.content !== undefined) updates.tags = extractTags(patch.content);
-  const { error } = await supabase.from("notes").update(updates).eq("id", id);
+export async function updateNote(
+  id: string,
+  patch: Partial<Pick<Note, "content" | "published" | "tags">>,
+) {
+  const { error } = await supabase.from("notes").update(patch).eq("id", id);
   if (error) throw error;
 }
 
