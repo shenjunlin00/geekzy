@@ -76,22 +76,35 @@ export async function fetchSettings(): Promise<SiteSettings> {
     )
     .eq("id", 1)
     .maybeSingle();
+  const d = (data ?? {}) as Record<string, unknown>;
   const merged: SiteSettings = {
     ...DEFAULT_SETTINGS,
     ...(data ?? {}),
-    text_modules: ((data?.text_modules as TextModule[]) ?? []),
-    icon_modules: ((data?.icon_modules as IconModule[]) ?? []),
-    available_tags: (data?.available_tags as string[]) ?? [],
+    text_modules: (d.text_modules as unknown as TextModule[]) ?? [],
+    icon_modules: (d.icon_modules as unknown as IconModule[]) ?? [],
+    available_tags: (d.available_tags as string[]) ?? [],
   };
   cache(merged);
   return merged;
 }
 
 export async function updateSettings(s: SiteSettings) {
-  const { error } = await supabase
-    .from("site_settings")
-    .update({ ...s, updated_at: new Date().toISOString() })
-    .eq("id", 1);
+  const payload = {
+    site_name: s.site_name,
+    logo: s.logo,
+    hero_title: s.hero_title,
+    subtitle: s.subtitle,
+    text_modules: s.text_modules as unknown as never,
+    icon_modules: s.icon_modules as unknown as never,
+    available_tags: s.available_tags,
+    password_enabled: s.password_enabled,
+    password_prompt_title: s.password_prompt_title,
+    password_prompt_text: s.password_prompt_text,
+    password_prompt_link_text: s.password_prompt_link_text,
+    password_prompt_link_url: s.password_prompt_link_url,
+    updated_at: new Date().toISOString(),
+  };
+  const { error } = await supabase.from("site_settings").update(payload).eq("id", 1);
   if (error) throw error;
   cache(s);
 }
