@@ -79,29 +79,71 @@ export type Database = {
         }
         Relationships: []
       }
-      site_settings: {
+      site_secrets: {
         Row: {
-          hero_title: string
           id: number
-          logo: string
-          site_name: string
-          subtitle: string
+          unlock_password: string
           updated_at: string
         }
         Insert: {
-          hero_title?: string
           id?: number
-          logo?: string
-          site_name?: string
-          subtitle?: string
+          unlock_password?: string
           updated_at?: string
         }
         Update: {
+          id?: number
+          unlock_password?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      site_settings: {
+        Row: {
+          available_tags: string[]
+          hero_title: string
+          icon_modules: Json
+          id: number
+          logo: string
+          password_enabled: boolean
+          password_prompt_link_text: string
+          password_prompt_link_url: string
+          password_prompt_text: string
+          password_prompt_title: string
+          site_name: string
+          subtitle: string
+          text_modules: Json
+          updated_at: string
+        }
+        Insert: {
+          available_tags?: string[]
           hero_title?: string
+          icon_modules?: Json
           id?: number
           logo?: string
+          password_enabled?: boolean
+          password_prompt_link_text?: string
+          password_prompt_link_url?: string
+          password_prompt_text?: string
+          password_prompt_title?: string
           site_name?: string
           subtitle?: string
+          text_modules?: Json
+          updated_at?: string
+        }
+        Update: {
+          available_tags?: string[]
+          hero_title?: string
+          icon_modules?: Json
+          id?: number
+          logo?: string
+          password_enabled?: boolean
+          password_prompt_link_text?: string
+          password_prompt_link_url?: string
+          password_prompt_text?: string
+          password_prompt_title?: string
+          site_name?: string
+          subtitle?: string
+          text_modules?: Json
           updated_at?: string
         }
         Relationships: []
@@ -139,6 +181,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      verify_unlock_password: { Args: { _input: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "user"

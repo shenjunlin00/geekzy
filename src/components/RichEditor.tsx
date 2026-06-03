@@ -16,18 +16,48 @@ function linkifyText(text: string): string {
   );
 }
 
+/**
+ * Normalize pasted text:
+ * - Split into "chunks" separated by one or more blank lines (a "chunk" = one resource)
+ * - Within a chunk, collapse consecutive blank lines, keep single line breaks
+ * - Between chunks, enforce exactly ONE blank line
+ */
+function normalizePastedText(text: string): string {
+  const lines = text.replace(/\r\n/g, "\n").split("\n");
+  const chunks: string[][] = [];
+  let cur: string[] = [];
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) {
+      if (cur.length) {
+        chunks.push(cur);
+        cur = [];
+      }
+    } else {
+      cur.push(line);
+    }
+  }
+  if (cur.length) chunks.push(cur);
+
+  return chunks
+    .map((c) => c.map((l) => linkifyText(l)).join("<br/>"))
+    .join("<br/><br/>"); // one blank line between resources
+}
+
 interface Props {
   value: string;
   onChange: (html: string) => void;
+  placeholder?: string;
+  minHeight?: string;
 }
 
 /**
- * ContentEditable rich editor with auto link detection and pasted-image inline embed.
+ * ContentEditable rich editor with auto link detection, paste auto-format,
+ * and inline-embed for pasted images.
  */
-export function RichEditor({ value, onChange }: Props) {
+export function RichEditor({ value, onChange, placeholder, minHeight = "400px" }: Props) {
   const ref = useRef<HTMLDivElement>(null);
 
-  // Sync external value -> editor only when different (avoid caret jumps while typing)
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -42,7 +72,6 @@ export function RichEditor({ value, onChange }: Props) {
     const cd = e.clipboardData;
     if (!cd) return;
 
-    // 1) Pasted image file(s)
     const imageItems = Array.from(cd.items).filter((it) => it.type.startsWith("image/"));
     if (imageItems.length > 0) {
       e.preventDefault();
@@ -64,15 +93,10 @@ export function RichEditor({ value, onChange }: Props) {
       return;
     }
 
-    // 2) Plain text — auto-linkify URLs, keep line breaks
     const text = cd.getData("text/plain");
     if (text) {
       e.preventDefault();
-      const html = text
-        .split(/\r?\n/)
-        .map((line) => (line.length ? linkifyText(line) : "<br/>"))
-        .join("<br/>");
-      document.execCommand("insertHTML", false, html);
+      document.execCommand("insertHTML", false, normalizePastedText(text));
       emit();
     }
   };
@@ -85,7 +109,9 @@ export function RichEditor({ value, onChange }: Props) {
       onInput={emit}
       onBlur={emit}
       onPaste={handlePaste}
-      className="min-h-[400px] w-full rounded-md border border-input bg-background p-4 text-sm leading-7 text-foreground outline-none focus:ring-2 focus:ring-ring [&_a]:text-primary [&_a]:underline [&_img]:my-2 [&_img]:max-w-full [&_img]:rounded"
+      data-placeholder={placeholder ?? ""}
+      style={{ minHeight }}
+      className="w-full rounded-md border border-input bg-background p-4 text-sm leading-7 text-foreground outline-none focus:ring-2 focus:ring-ring [&_a]:text-primary [&_a]:underline [&_img]:my-2 [&_img]:max-w-full [&_img]:rounded empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground"
     />
   );
 }
