@@ -127,7 +127,13 @@ export async function saveUnlockPassword(p: string) {
 // Simpler: store hash check via RPC. Here we use a server-side comparison
 // via a Postgres function for safety.
 export async function verifyUnlockPassword(input: string): Promise<boolean> {
-  const { data, error } = await supabase.rpc("verify_unlock_password", { _input: input });
+  const { data, error } = await (supabase.rpc as unknown as (
+    fn: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: boolean | null; error: unknown }>)(
+    "verify_unlock_password",
+    { _input: input },
+  );
   if (error) {
     console.error(error);
     return false;
