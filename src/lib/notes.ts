@@ -17,6 +17,25 @@ export interface NoteRevision {
   edited_at: string;
 }
 
+const NOTES_CACHE_KEY = "notes_cache_v1";
+
+export function getCachedNotes(): Note[] | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(NOTES_CACHE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as Note[];
+  } catch {
+    return null;
+  }
+}
+
+function cacheNotes(notes: Note[]) {
+  try {
+    localStorage.setItem(NOTES_CACHE_KEY, JSON.stringify(notes));
+  } catch {}
+}
+
 export async function fetchNotes(opts: { includeUnpublished?: boolean } = {}) {
   let q = supabase
     .from("notes")
@@ -25,7 +44,19 @@ export async function fetchNotes(opts: { includeUnpublished?: boolean } = {}) {
   if (!opts.includeUnpublished) q = q.eq("published", true);
   const { data, error } = await q;
   if (error) throw error;
-  return (data ?? []) as Note[];
+  const notes = (data ?? []) as Note[];
+  if (!opts.includeUnpublished) cacheNotes(notes);
+  return notes;
+}
+
+export async function fetchNoteById(id: string) {
+  const { data, error } = await supabase
+    .from("notes")
+    .select("id, content, tags, published, created_at, updated_at")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  return data as Note | null;
 }
 
 export async function createNote(content: string, tags: string[] = [], published = true) {
