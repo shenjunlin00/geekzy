@@ -15,7 +15,7 @@ export function SubtitleModules({
   return (
     <>
       {texts.length > 0 && (
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm">
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm">
           {texts.map((t) =>
             t.url ? (
               <a
@@ -23,9 +23,16 @@ export function SubtitleModules({
                 href={t.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-primary underline-offset-4 hover:underline"
+                style={t.color ? { color: t.color } : undefined}
+                className={
+                  "inline-flex items-center gap-1 font-medium underline decoration-2 underline-offset-4 transition hover:opacity-80 " +
+                  (t.color ? "" : "text-primary ") +
+                  (t.blink ? "link-blink" : "")
+                }
               >
+                <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: t.color || "currentColor" }} />
                 {t.text}
+                <span aria-hidden>→</span>
               </a>
             ) : (
               <span key={t.id} className="text-muted-foreground">

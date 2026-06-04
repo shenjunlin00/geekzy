@@ -5,15 +5,17 @@ export interface TextModule {
   id: string;
   text: string;
   url: string;
+  color?: string; // hex/css color for the link
+  blink?: boolean; // whether to apply blink/pulse animation
 }
 
 export interface IconModule {
   id: string;
-  icon: string; // dataURL or URL
+  icon: string;
   label: string;
-  mode: "link" | "qr"; // click behavior
-  link_url: string; // when mode = "link"
-  qr_url: string; // when mode = "qr" (image to show in popup)
+  mode: "link" | "qr";
+  link_url: string;
+  qr_url: string;
   popup_title: string;
   popup_text: string;
 }
@@ -109,7 +111,6 @@ export async function updateSettings(s: SiteSettings) {
   cache(s);
 }
 
-// Unlock password (stored in private site_secrets, admin-only)
 export async function fetchUnlockPassword(): Promise<string> {
   const { data } = await supabase.from("site_secrets").select("unlock_password").eq("id", 1).maybeSingle();
   return data?.unlock_password ?? "";
@@ -123,9 +124,6 @@ export async function saveUnlockPassword(p: string) {
   if (error) throw error;
 }
 
-// Verify the unlock password by attempting an update on a non-existent row.
-// Simpler: store hash check via RPC. Here we use a server-side comparison
-// via a Postgres function for safety.
 export async function verifyUnlockPassword(input: string): Promise<boolean> {
   const { data, error } = await (supabase.rpc as unknown as (
     fn: string,

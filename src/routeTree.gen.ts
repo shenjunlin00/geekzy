@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as NIdRouteImport } from './routes/n.$id'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -28,35 +29,44 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NIdRoute = NIdRouteImport.update({
+  id: '/n/$id',
+  path: '/n/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/login': typeof LoginRoute
+  '/n/$id': typeof NIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/login': typeof LoginRoute
+  '/n/$id': typeof NIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/login': typeof LoginRoute
+  '/n/$id': typeof NIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/admin' | '/login'
+  fullPaths: '/' | '/admin' | '/login' | '/n/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin' | '/login'
-  id: '__root__' | '/' | '/admin' | '/login'
+  to: '/' | '/admin' | '/login' | '/n/$id'
+  id: '__root__' | '/' | '/admin' | '/login' | '/n/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   LoginRoute: typeof LoginRoute
+  NIdRoute: typeof NIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -82,6 +92,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/n/$id': {
+      id: '/n/$id'
+      path: '/n/$id'
+      fullPath: '/n/$id'
+      preLoaderRoute: typeof NIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -89,6 +106,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   LoginRoute: LoginRoute,
+  NIdRoute: NIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
