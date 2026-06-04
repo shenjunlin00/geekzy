@@ -142,3 +142,24 @@
     color: var(--color-foreground);
   }
 }
+
+@keyframes link-blink {
+  0%, 100% { opacity: 1; filter: drop-shadow(0 0 0 transparent); }
+  50% { opacity: 0.55; filter: drop-shadow(0 0 6px currentColor); }
+}
+.link-blink {
+  animation: link-blink 1.4s ease-in-out infinite;
+}
+
+mark.search-hit {
+  background: oklch(0.92 0.18 90);
+  color: inherit;
+  padding: 0 2px;
+  border-radius: 3px;
+}
+mark.search-hit.active {
+  background: oklch(0.78 0.22 55);
+  color: white;
+  box-shadow: 0 0 0 2px oklch(0.78 0.22 55 / 0.4);
+}
+
