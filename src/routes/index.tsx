@@ -98,7 +98,7 @@ function Index() {
       acceptNode: (node) => {
         const p = node.parentElement;
         if (!p) return NodeFilter.FILTER_REJECT;
-        if (p.closest("textarea, input, script, style, .timeline-skip")) return NodeFilter.FILTER_REJECT;
+        if (p.closest("textarea, input, script, style, .timeline-skip, [contenteditable='true']")) return NodeFilter.FILTER_REJECT;
         return node.nodeValue && node.nodeValue.toLowerCase().includes(needle)
           ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
       },
