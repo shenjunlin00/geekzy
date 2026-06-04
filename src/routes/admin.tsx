@@ -201,20 +201,39 @@ function Admin() {
                 value={m.text}
                 onChange={(e) => updateTextModule(m.id, { text: e.target.value })}
                 placeholder="显示文字"
-                className="h-9 min-w-[160px] flex-1 rounded-md border border-input bg-background px-3 text-sm"
+                className="h-9 min-w-[140px] flex-1 rounded-md border border-input bg-background px-3 text-sm"
               />
               <input
                 value={m.url}
                 onChange={(e) => updateTextModule(m.id, { url: e.target.value })}
                 placeholder="跳转链接 (可选)"
-                className="h-9 min-w-[200px] flex-1 rounded-md border border-input bg-background px-3 text-sm"
+                className="h-9 min-w-[180px] flex-1 rounded-md border border-input bg-background px-3 text-sm"
               />
+              <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                颜色
+                <input
+                  type="color"
+                  value={m.color || "#2563eb"}
+                  onChange={(e) => updateTextModule(m.id, { color: e.target.value })}
+                  className="h-8 w-10 cursor-pointer rounded border border-input bg-background"
+                />
+              </label>
+              <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={!!m.blink}
+                  onChange={(e) => updateTextModule(m.id, { blink: e.target.checked })}
+                  className="h-4 w-4"
+                />
+                闪烁
+              </label>
               <button onClick={() => removeTextModule(m.id)} className="text-destructive">
                 <Trash2 className="h-4 w-4" />
               </button>
             </div>
           ))}
         </Section>
+
 
         <Section title="副标题下方 · 图标模块">
           <button
