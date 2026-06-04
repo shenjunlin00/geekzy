@@ -78,7 +78,8 @@ function Admin() {
 
   // text modules
   const addTextModule = () =>
-    update("text_modules", [...settings.text_modules, { id: uid(), text: "新文字", url: "" }]);
+    update("text_modules", [...settings.text_modules, { id: uid(), text: "新文字", url: "", color: "#2563eb", blink: false }]);
+
   const updateTextModule = (id: string, patch: Partial<TextModule>) =>
     update("text_modules", settings.text_modules.map((m) => (m.id === id ? { ...m, ...patch } : m)));
   const removeTextModule = (id: string) =>
