@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
-import { DEFAULT_SETTINGS, type SiteSettings, type TextModule, type IconModule } from "@/lib/site-store";
+import { DEFAULT_SETTINGS } from "@/lib/site-store";
+import type { SiteSettings, TextModule, IconModule } from "@/lib/site-store";
 import type { Note } from "@/lib/notes";
 
 /**
