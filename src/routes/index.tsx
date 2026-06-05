@@ -11,6 +11,7 @@ import {
   DEFAULT_SETTINGS, fetchSettings, getCachedSettings, isUnlocked, type SiteSettings,
 } from "@/lib/site-store";
 import { createNote, fetchNotes, getCachedNotes, type Note } from "@/lib/notes";
+import { getPublicSiteData } from "@/lib/public-data.functions";
 import { useAuth } from "@/lib/use-auth";
 
 export const Route = createFileRoute("/")({
@@ -20,17 +21,26 @@ export const Route = createFileRoute("/")({
       { name: "description", content: "精选资源链接与笔记。" },
     ],
   }),
+  loader: async () => {
+    try {
+      return await getPublicSiteData();
+    } catch {
+      return { settings: null, notes: [] as Note[] };
+    }
+  },
   component: Index,
 });
 
-interface SearchHit {
-  noteId: string;
-  // We highlight in DOM dynamically; store DOM ref index later.
-}
-
 function Index() {
-  const [settings, setSettings] = useState<SiteSettings | null>(() => getCachedSettings());
-  const [notes, setNotes] = useState<Note[]>(() => getCachedNotes() ?? []);
+  const loaderData = Route.useLoaderData() as { settings: SiteSettings | null; notes: Note[] };
+
+  const [settings, setSettings] = useState<SiteSettings>(
+    () => loaderData.settings ?? getCachedSettings() ?? DEFAULT_SETTINGS,
+  );
+  const [notes, setNotes] = useState<Note[]>(
+    () => (loaderData.notes && loaderData.notes.length > 0 ? loaderData.notes : getCachedNotes() ?? []),
+  );
+
   const [query, setQuery] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
@@ -45,14 +55,15 @@ function Index() {
   const containerRef = useRef<HTMLDivElement>(null);
   const { isAdmin } = useAuth();
 
+  // Background refresh from client to pick up latest data without delaying paint.
   useEffect(() => {
-    fetchSettings().then(setSettings);
+    fetchSettings().then(setSettings).catch(() => {});
     fetchNotes().then(setNotes).catch(() => {});
   }, []);
 
   const reload = () => fetchNotes().then(setNotes);
 
-  const view = settings ?? DEFAULT_SETTINGS;
+  const view = settings;
   const locked = view.password_enabled && !unlocked && !isAdmin;
 
   const allTags = useMemo(() => {
@@ -66,7 +77,6 @@ function Index() {
     [notes, activeTag],
   );
 
-  // Timeline grouped by date
   const groupedByDate = useMemo(() => {
     const m = new Map<string, Note[]>();
     visibleNotes.forEach((n) => {
@@ -78,27 +88,28 @@ function Index() {
   }, [visibleNotes]);
 
   // ---- Find-on-page search ----
-  // Clears existing marks and re-highlights all occurrences inside containerRef.
   const performSearch = useCallback((q: string) => {
     const root = containerRef.current;
-    if (!root) return;
-    // Clear existing marks
+    if (!root) return [] as HTMLElement[];
+
+    // Wipe any previously injected marks.
     root.querySelectorAll("mark.search-hit").forEach((m) => {
       const parent = m.parentNode;
       if (!parent) return;
       while (m.firstChild) parent.insertBefore(m.firstChild, m);
       parent.removeChild(m);
-      parent.normalize();
     });
-    if (!q.trim()) { setHits([]); setHitIndex(0); return; }
+    root.normalize();
 
     const needle = q.trim().toLowerCase();
+    if (!needle) return [];
+
     const newHits: HTMLElement[] = [];
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode: (node) => {
         const p = node.parentElement;
         if (!p) return NodeFilter.FILTER_REJECT;
-        if (p.closest("textarea, input, script, style, .timeline-skip, [contenteditable='true']")) return NodeFilter.FILTER_REJECT;
+        if (p.closest("textarea, input, script, style, [contenteditable='true']")) return NodeFilter.FILTER_REJECT;
         return node.nodeValue && node.nodeValue.toLowerCase().includes(needle)
           ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
       },
@@ -129,21 +140,29 @@ function Index() {
       tn.parentNode?.replaceChild(frag, tn);
     });
 
-    setHits(newHits);
-    setHitIndex(newHits.length > 0 ? 0 : 0);
+    return newHits;
   }, []);
 
-  // Re-run search after notes render or query changes.
+  // Auto re-highlight as user types or when notes/filter change.
   useLayoutEffect(() => {
-    performSearch(query);
+    const newHits = performSearch(query);
+    setHits(newHits);
+    setHitIndex(0);
   }, [query, visibleNotes, performSearch]);
 
-  // Highlight active hit and scroll into view.
+  // Scroll active hit into view and add visual emphasis.
   useEffect(() => {
     hits.forEach((h, i) => h.classList.toggle("active", i === hitIndex));
     const target = hits[hitIndex];
     if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [hits, hitIndex]);
+
+  const runSearch = () => {
+    const newHits = performSearch(query);
+    setHits(newHits);
+    setHitIndex(0);
+    if (newHits[0]) newHits[0].scrollIntoView({ behavior: "smooth", block: "center" });
+  };
 
   const nextHit = () => hits.length > 0 && setHitIndex((i) => (i + 1) % hits.length);
   const prevHit = () => hits.length > 0 && setHitIndex((i) => (i - 1 + hits.length) % hits.length);
@@ -166,16 +185,13 @@ function Index() {
   };
 
   const bulkShareLinks = async () => {
-    const lines = Array.from(selectedIds).map((id) => `${window.location.origin}/n/${id}`);
+    const idToSlug = new Map(notes.map((n) => [n.id, n.slug ?? n.id]));
+    const lines = Array.from(selectedIds).map((id) => `${window.location.origin}/n/${idToSlug.get(id) ?? id}`);
     if (lines.length === 0) return;
     try { await navigator.clipboard.writeText(lines.join("\n")); } catch {}
     setBulkCopied(true);
     setTimeout(() => setBulkCopied(false), 1500);
   };
-
-  if (!settings && notes.length === 0) {
-    return <div className="min-h-screen bg-background" />;
-  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -203,28 +219,35 @@ function Index() {
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="搜索资源名称、链接或说明..."
-              className="h-12 w-full rounded-full border border-input bg-background pl-11 pr-44 text-sm shadow-sm outline-none focus:ring-2 focus:ring-ring"
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); runSearch(); } }}
+              placeholder="搜索资源名称、链接或说明，回车定位..."
+              className="h-12 w-full rounded-full border border-input bg-background pl-11 pr-56 text-sm shadow-sm outline-none focus:ring-2 focus:ring-ring"
             />
-            {query.trim() && (
-              <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
-                <span className="px-2 text-xs text-muted-foreground">
-                  {hits.length > 0 ? `${hitIndex + 1}/${hits.length}` : "未收录"}
-                </span>
-                <button onClick={prevHit} disabled={hits.length === 0}
-                  className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-accent disabled:opacity-30">
-                  <ChevronUp className="h-4 w-4" />
-                </button>
-                <button onClick={nextHit} disabled={hits.length === 0}
-                  className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-accent disabled:opacity-30">
-                  <ChevronDown className="h-4 w-4" />
-                </button>
-                <button onClick={() => setQuery("")}
-                  className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-accent">
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            )}
+            <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
+              {query.trim() && (
+                <>
+                  <span className="px-1 text-xs text-muted-foreground">
+                    {hits.length > 0 ? `${hitIndex + 1}/${hits.length}` : "未收录"}
+                  </span>
+                  <button onClick={prevHit} disabled={hits.length === 0}
+                    className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-accent disabled:opacity-30" title="上一个">
+                    <ChevronUp className="h-4 w-4" />
+                  </button>
+                  <button onClick={nextHit} disabled={hits.length === 0}
+                    className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-accent disabled:opacity-30" title="下一个">
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+                  <button onClick={() => setQuery("")}
+                    className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-accent" title="清空">
+                    <X className="h-4 w-4" />
+                  </button>
+                </>
+              )}
+              <button onClick={runSearch}
+                className="ml-1 h-8 rounded-full bg-foreground px-4 text-xs font-medium text-background hover:opacity-90">
+                搜索
+              </button>
+            </div>
           </div>
 
           {allTags.length > 0 && (
@@ -244,25 +267,25 @@ function Index() {
             </div>
           )}
 
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-            {isAdmin && (
+          {isAdmin && (
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
               <button onClick={() => setShowAdd((s) => !s)}
                 className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90">
                 <Plus className="h-4 w-4" />{showAdd ? "收起" : "添加笔记"}
               </button>
-            )}
-            <button onClick={() => { setSelectMode((s) => !s); setSelectedIds(new Set()); }}
-              className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm hover:bg-accent">
-              <Share2 className="h-4 w-4" />{selectMode ? "退出批量" : "批量分享"}
-            </button>
-            {selectMode && (
-              <button onClick={bulkShareLinks} disabled={selectedIds.size === 0}
-                className="inline-flex items-center gap-2 rounded-full bg-foreground px-4 py-2 text-sm text-background disabled:opacity-50">
-                {bulkCopied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
-                {bulkCopied ? "已复制" : `复制 ${selectedIds.size} 条链接`}
+              <button onClick={() => { setSelectMode((s) => !s); setSelectedIds(new Set()); }}
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm hover:bg-accent">
+                <Share2 className="h-4 w-4" />{selectMode ? "退出批量" : "批量分享"}
               </button>
-            )}
-          </div>
+              {selectMode && (
+                <button onClick={bulkShareLinks} disabled={selectedIds.size === 0}
+                  className="inline-flex items-center gap-2 rounded-full bg-foreground px-4 py-2 text-sm text-background disabled:opacity-50">
+                  {bulkCopied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
+                  {bulkCopied ? "已复制" : `复制 ${selectedIds.size} 条链接`}
+                </button>
+              )}
+            </div>
+          )}
         </section>
 
         {isAdmin && showAdd && (
@@ -281,10 +304,10 @@ function Index() {
         )}
 
         <div className="relative mt-12 grid grid-cols-1 gap-8 lg:grid-cols-[1fr_220px]">
-          <section ref={containerRef} className={`space-y-6 ${locked ? "max-h-[140vh] overflow-hidden" : ""}`}>
+          <section ref={containerRef} className="space-y-6">
             {visibleNotes.length === 0 ? (
               <div className="rounded-lg border border-dashed border-border bg-card p-12 text-center text-sm text-muted-foreground">
-                {notes.length === 0 ? "加载中..." : "暂无内容"}
+                暂无内容
               </div>
             ) : (
               visibleNotes.map((n) => (
@@ -295,7 +318,7 @@ function Index() {
                   availableTags={view.available_tags}
                   onChanged={reload}
                   onTagClick={(t) => setActiveTag(t)}
-                  selectable={selectMode}
+                  selectable={selectMode && isAdmin}
                   selected={selectedIds.has(n.id)}
                   onToggleSelect={() => toggleSelect(n.id)}
                 />
@@ -303,7 +326,7 @@ function Index() {
             )}
           </section>
 
-          {!locked && visibleNotes.length > 0 && (
+          {visibleNotes.length > 0 && (
             <aside className="timeline-skip hidden lg:block">
               <div className="sticky top-6 rounded-xl border border-border bg-gradient-to-b from-card to-card/60 p-4 shadow-sm">
                 <h3 className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
