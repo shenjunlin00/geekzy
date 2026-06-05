@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export interface Note {
   id: string;
+  slug: string;
   content: string;
   tags: string[];
   published: boolean;
@@ -17,7 +18,7 @@ export interface NoteRevision {
   edited_at: string;
 }
 
-const NOTES_CACHE_KEY = "notes_cache_v1";
+const NOTES_CACHE_KEY = "notes_cache_v2";
 
 export function getCachedNotes(): Note[] | null {
   if (typeof window === "undefined") return null;
@@ -36,37 +37,42 @@ function cacheNotes(notes: Note[]) {
   } catch {}
 }
 
+const SELECT = "id, slug, content, tags, published, created_at, updated_at";
+
 export async function fetchNotes(opts: { includeUnpublished?: boolean } = {}) {
   let q = supabase
     .from("notes")
-    .select("id, content, tags, published, created_at, updated_at")
+    .select(SELECT)
     .order("updated_at", { ascending: false });
   if (!opts.includeUnpublished) q = q.eq("published", true);
   const { data, error } = await q;
   if (error) throw error;
-  const notes = (data ?? []) as Note[];
+  const notes = (data ?? []) as unknown as Note[];
   if (!opts.includeUnpublished) cacheNotes(notes);
   return notes;
 }
 
-export async function fetchNoteById(id: string) {
-  const { data, error } = await supabase
-    .from("notes")
-    .select("id, content, tags, published, created_at, updated_at")
-    .eq("id", id)
-    .maybeSingle();
-  if (error) throw error;
-  return data as Note | null;
+/** Lookup a note by slug (5-char share code) or by UUID id (legacy links). */
+export async function fetchNoteBySlugOrId(key: string) {
+  // Try slug first
+  const bySlug = await supabase.from("notes").select(SELECT).eq("slug", key).maybeSingle();
+  if (bySlug.data) return bySlug.data as unknown as Note;
+  // UUID fallback
+  if (/^[0-9a-f-]{36}$/i.test(key)) {
+    const byId = await supabase.from("notes").select(SELECT).eq("id", key).maybeSingle();
+    if (byId.data) return byId.data as unknown as Note;
+  }
+  return null;
 }
 
 export async function createNote(content: string, tags: string[] = [], published = true) {
   const { data, error } = await supabase
     .from("notes")
     .insert({ content, tags, published })
-    .select()
+    .select(SELECT)
     .single();
   if (error) throw error;
-  return data as Note;
+  return data as unknown as Note;
 }
 
 export async function updateNote(
