@@ -25,14 +25,14 @@ export const Route = createFileRoute("/")({
     try {
       return await getPublicSiteData();
     } catch {
-      return { settings: null, notes: [] as Note[] };
+      return { settings: DEFAULT_SETTINGS, notes: [] as Note[] };
     }
   },
   component: Index,
 });
 
 function Index() {
-  const loaderData = Route.useLoaderData() as { settings: SiteSettings | null; notes: Note[] };
+  const loaderData = Route.useLoaderData() as { settings: SiteSettings; notes: Note[] };
 
   const [settings, setSettings] = useState<SiteSettings>(
     () => loaderData.settings ?? getCachedSettings() ?? DEFAULT_SETTINGS,
