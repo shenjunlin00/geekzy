@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, Copy, Share2 } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { DEFAULT_SETTINGS, fetchSettings, getCachedSettings, type SiteSettings } from "@/lib/site-store";
-import { fetchNoteById, type Note } from "@/lib/notes";
+import { fetchNoteBySlugOrId, type Note } from "@/lib/notes";
 import { htmlToPlainText } from "@/lib/tags";
 
 export const Route = createFileRoute("/n/$id")({
@@ -20,7 +20,7 @@ function SharedNotePage() {
 
   useEffect(() => {
     fetchSettings().then(setSettings);
-    fetchNoteById(id).then((n) => { setNote(n); setLoading(false); });
+    fetchNoteBySlugOrId(id).then((n) => { setNote(n); setLoading(false); });
   }, [id]);
 
   const view = settings ?? DEFAULT_SETTINGS;

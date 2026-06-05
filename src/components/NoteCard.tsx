@@ -52,7 +52,7 @@ export function NoteCard({
   const copy = () => copyText(htmlToPlainText(note.content), setCopied);
 
   const shareLink = () => {
-    const url = `${window.location.origin}/n/${note.id}`;
+    const url = `${window.location.origin}/n/${note.slug ?? note.id}`;
     copyText(url, setShareCopied);
   };
 

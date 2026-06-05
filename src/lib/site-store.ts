@@ -51,7 +51,8 @@ export const DEFAULT_SETTINGS: SiteSettings = {
 };
 
 const CACHE_KEY = "site_settings_v2";
-const UNLOCK_KEY = "site_unlocked";
+const UNLOCK_KEY = "site_unlocked_at";
+const UNLOCK_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 export function getCachedSettings(): SiteSettings | null {
   if (typeof window === "undefined") return null;
@@ -141,11 +142,19 @@ export async function verifyUnlockPassword(input: string): Promise<boolean> {
 
 export function isUnlocked(): boolean {
   if (typeof window === "undefined") return false;
-  return localStorage.getItem(UNLOCK_KEY) === "1";
+  const ts = localStorage.getItem(UNLOCK_KEY);
+  if (!ts) return false;
+  const t = Number(ts);
+  if (!Number.isFinite(t)) return false;
+  if (Date.now() - t > UNLOCK_TTL_MS) {
+    localStorage.removeItem(UNLOCK_KEY);
+    return false;
+  }
+  return true;
 }
 
 export function setUnlocked(v: boolean) {
   if (typeof window === "undefined") return;
-  if (v) localStorage.setItem(UNLOCK_KEY, "1");
+  if (v) localStorage.setItem(UNLOCK_KEY, String(Date.now()));
   else localStorage.removeItem(UNLOCK_KEY);
 }
