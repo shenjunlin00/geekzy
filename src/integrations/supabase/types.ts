@@ -56,6 +56,7 @@ export type Database = {
           created_at: string
           id: string
           published: boolean
+          slug: string
           tags: string[]
           updated_at: string
         }
@@ -65,6 +66,7 @@ export type Database = {
           created_at?: string
           id?: string
           published?: boolean
+          slug?: string
           tags?: string[]
           updated_at?: string
         }
@@ -74,6 +76,7 @@ export type Database = {
           created_at?: string
           id?: string
           published?: boolean
+          slug?: string
           tags?: string[]
           updated_at?: string
         }
@@ -174,6 +177,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      gen_note_slug: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
