@@ -3,9 +3,9 @@ import type { SiteSettings } from "@/lib/site-store";
 import { verifyUnlockPassword, setUnlocked } from "@/lib/site-store";
 
 /**
- * Viewport-anchored gradient lock that appears AFTER the user scrolls past
- * ~1.6 screens. Above that threshold, the page is freely viewable so the
- * user gets a real taste of the content before the paywall kicks in.
+ * Hard scroll lock: user can freely scroll up to ~1.6 viewport heights.
+ * Beyond that the page scroll is clamped and an opaque blurred overlay
+ * blocks the rest of the content until the password is entered.
  */
 export function PasswordGateOverlay({
   settings,
@@ -21,16 +21,56 @@ export function PasswordGateOverlay({
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => {
-      const vh = window.innerHeight || 1;
-      setVisible(window.scrollY > vh * 1.6);
+    const getMax = () => (window.innerHeight || 1) * 1.6;
+
+    const clamp = () => {
+      const max = getMax();
+      if (window.scrollY > max) {
+        window.scrollTo({ top: max, behavior: "auto" });
+        setVisible(true);
+      } else {
+        setVisible(window.scrollY > max * 0.6);
+      }
     };
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
+
+    const preventWheel = (e: WheelEvent) => {
+      if (window.scrollY >= getMax() && e.deltaY > 0) {
+        e.preventDefault();
+      }
+    };
+
+    let touchStartY = 0;
+    const onTouchStart = (e: TouchEvent) => {
+      touchStartY = e.touches[0].clientY;
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      const dy = touchStartY - e.touches[0].clientY;
+      if (window.scrollY >= getMax() && dy > 0) {
+        e.preventDefault();
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      const blockedKeys = ["ArrowDown", "PageDown", "End", " ", "Spacebar"];
+      if (window.scrollY >= getMax() && blockedKeys.includes(e.key)) {
+        e.preventDefault();
+      }
+    };
+
+    clamp();
+    window.addEventListener("scroll", clamp, { passive: true });
+    window.addEventListener("resize", clamp);
+    window.addEventListener("wheel", preventWheel, { passive: false });
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("keydown", onKey);
+
     return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
+      window.removeEventListener("scroll", clamp);
+      window.removeEventListener("resize", clamp);
+      window.removeEventListener("wheel", preventWheel);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("keydown", onKey);
     };
   }, []);
 
@@ -46,12 +86,12 @@ export function PasswordGateOverlay({
   return (
     <>
       {visible && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 h-[55vh] transition-opacity duration-300">
-          <div className="absolute inset-0 bg-gradient-to-b from-background/0 via-background/60 to-background" />
-          <div className="absolute inset-0 backdrop-blur-[2px] [mask-image:linear-gradient(to_bottom,transparent,black_30%)]" />
-          <div className="absolute inset-0 backdrop-blur-md [mask-image:linear-gradient(to_bottom,transparent,black_55%)]" />
-          <div className="absolute inset-0 backdrop-blur-xl [mask-image:linear-gradient(to_bottom,transparent,black_75%)]" />
-          <div className="pointer-events-auto absolute inset-x-0 bottom-[18vh] flex flex-col items-center gap-3 px-4 text-center">
+        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 h-[70vh] transition-opacity duration-300">
+          <div className="absolute inset-0 bg-gradient-to-b from-background/0 via-background/85 to-background" />
+          <div className="absolute inset-0 backdrop-blur-[3px] [mask-image:linear-gradient(to_bottom,transparent,black_20%)]" />
+          <div className="absolute inset-0 backdrop-blur-lg [mask-image:linear-gradient(to_bottom,transparent,black_40%)]" />
+          <div className="absolute inset-0 backdrop-blur-2xl [mask-image:linear-gradient(to_bottom,transparent,black_60%)]" />
+          <div className="pointer-events-auto absolute inset-x-0 bottom-[20vh] flex flex-col items-center gap-3 px-4 text-center">
             <p className="text-sm font-medium text-foreground/70">🔒 更多内容已加密</p>
             <button
               onClick={() => setOpen(true)}
