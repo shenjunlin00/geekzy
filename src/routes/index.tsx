@@ -344,9 +344,8 @@ function Index() {
                       <div className="text-xs font-semibold text-foreground">{date}</div>
                       <ul className="mt-1.5 space-y-1">
                         {items.map((n) => {
-                          const tmp = typeof document !== "undefined" ? document.createElement("div") : null;
-                          if (tmp) tmp.innerHTML = n.content;
-                          const preview = (tmp?.textContent || "").trim().slice(0, 20) || "(空)";
+                          const preview =
+                            n.content.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 20) || "(空)";
                           return (
                             <li key={n.id}>
                               <a href={`#${n.id}`} onClick={(e) => {
