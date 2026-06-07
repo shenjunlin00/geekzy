@@ -161,12 +161,23 @@ function Index() {
   const prevHit = () => hits.length > 0 && setHitIndex((i) => (i - 1 + hits.length) % hits.length);
 
   const publishDraft = async () => {
-    const tmp = document.createElement("div");
-    tmp.innerHTML = draft;
-    if (!(tmp.textContent || "").trim()) return;
-    await createNote(draft, draftTags, true);
-    setDraft(""); setDraftTags([]); setShowAdd(false);
-    reload();
+    setPublishError("");
+    const plain = draft.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").trim();
+    if (!plain) {
+      setPublishError("内容不能为空");
+      return;
+    }
+    setPublishing(true);
+    try {
+      await createNote(draft, draftTags, true);
+      setDraft(""); setDraftTags([]); setShowAdd(false);
+      await reload();
+    } catch (e) {
+      console.error("publish failed", e);
+      setPublishError((e as Error)?.message || "发布失败，请重试");
+    } finally {
+      setPublishing(false);
+    }
   };
 
   const toggleSelect = (id: string) => {
