@@ -296,13 +296,14 @@ function Index() {
           <section className="mt-8 space-y-3 rounded-lg border border-border bg-card p-5">
             <RichEditor value={draft} onChange={setDraft} minHeight="200px" placeholder="粘贴链接、图片或直接输入..." />
             <TagPicker available={view.available_tags} selected={draftTags} onChange={setDraftTags} />
-            <div className="flex gap-2">
-              <button onClick={publishDraft}
-                className="h-10 rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-                发布
+            <div className="flex flex-wrap items-center gap-2">
+              <button onClick={publishDraft} disabled={publishing}
+                className="h-10 rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
+                {publishing ? "发布中..." : "发布"}
               </button>
-              <button onClick={() => { setDraft(""); setDraftTags([]); setShowAdd(false); }}
+              <button onClick={() => { setDraft(""); setDraftTags([]); setShowAdd(false); setPublishError(""); }}
                 className="h-10 rounded-md border border-border px-5 text-sm">取消</button>
+              {publishError && <span className="text-xs text-destructive">{publishError}</span>}
             </div>
           </section>
         )}
