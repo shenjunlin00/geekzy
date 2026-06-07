@@ -11,41 +11,34 @@ import {
   DEFAULT_SETTINGS, fetchSettings, getCachedSettings, isUnlocked, type SiteSettings,
 } from "@/lib/site-store";
 import { createNote, fetchNotes, getCachedNotes, type Note } from "@/lib/notes";
-import { getPublicSiteData } from "@/lib/public-data.functions";
+// (Public-site SSR data fn no longer used; route is client-rendered for instant paint.)
 import { useAuth } from "@/lib/use-auth";
 
 export const Route = createFileRoute("/")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "资源目录" },
       { name: "description", content: "精选资源链接与笔记。" },
     ],
   }),
-  loader: async () => {
-    try {
-      return await getPublicSiteData();
-    } catch {
-      return { settings: DEFAULT_SETTINGS, notes: [] as Note[] };
-    }
-  },
   component: Index,
 });
 
 function Index() {
-  const loaderData = Route.useLoaderData() as { settings: SiteSettings; notes: Note[] };
-
+  // Hydrate instantly from localStorage cache, then refresh in background.
   const [settings, setSettings] = useState<SiteSettings>(
-    () => loaderData.settings ?? getCachedSettings() ?? DEFAULT_SETTINGS,
+    () => getCachedSettings() ?? DEFAULT_SETTINGS,
   );
-  const [notes, setNotes] = useState<Note[]>(
-    () => (loaderData.notes && loaderData.notes.length > 0 ? loaderData.notes : getCachedNotes() ?? []),
-  );
+  const [notes, setNotes] = useState<Note[]>(() => getCachedNotes() ?? []);
 
   const [query, setQuery] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [draft, setDraft] = useState("");
   const [draftTags, setDraftTags] = useState<string[]>([]);
+  const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState("");
   const [unlocked, setUnlockedState] = useState<boolean>(() => isUnlocked());
   const [hitIndex, setHitIndex] = useState(0);
   const [hits, setHits] = useState<HTMLElement[]>([]);
@@ -168,12 +161,23 @@ function Index() {
   const prevHit = () => hits.length > 0 && setHitIndex((i) => (i - 1 + hits.length) % hits.length);
 
   const publishDraft = async () => {
-    const tmp = document.createElement("div");
-    tmp.innerHTML = draft;
-    if (!(tmp.textContent || "").trim()) return;
-    await createNote(draft, draftTags, true);
-    setDraft(""); setDraftTags([]); setShowAdd(false);
-    reload();
+    setPublishError("");
+    const plain = draft.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").trim();
+    if (!plain) {
+      setPublishError("内容不能为空");
+      return;
+    }
+    setPublishing(true);
+    try {
+      await createNote(draft, draftTags, true);
+      setDraft(""); setDraftTags([]); setShowAdd(false);
+      await reload();
+    } catch (e) {
+      console.error("publish failed", e);
+      setPublishError((e as Error)?.message || "发布失败，请重试");
+    } finally {
+      setPublishing(false);
+    }
   };
 
   const toggleSelect = (id: string) => {
@@ -292,13 +296,14 @@ function Index() {
           <section className="mt-8 space-y-3 rounded-lg border border-border bg-card p-5">
             <RichEditor value={draft} onChange={setDraft} minHeight="200px" placeholder="粘贴链接、图片或直接输入..." />
             <TagPicker available={view.available_tags} selected={draftTags} onChange={setDraftTags} />
-            <div className="flex gap-2">
-              <button onClick={publishDraft}
-                className="h-10 rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-                发布
+            <div className="flex flex-wrap items-center gap-2">
+              <button onClick={publishDraft} disabled={publishing}
+                className="h-10 rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
+                {publishing ? "发布中..." : "发布"}
               </button>
-              <button onClick={() => { setDraft(""); setDraftTags([]); setShowAdd(false); }}
+              <button onClick={() => { setDraft(""); setDraftTags([]); setShowAdd(false); setPublishError(""); }}
                 className="h-10 rounded-md border border-border px-5 text-sm">取消</button>
+              {publishError && <span className="text-xs text-destructive">{publishError}</span>}
             </div>
           </section>
         )}
@@ -339,9 +344,8 @@ function Index() {
                       <div className="text-xs font-semibold text-foreground">{date}</div>
                       <ul className="mt-1.5 space-y-1">
                         {items.map((n) => {
-                          const tmp = typeof document !== "undefined" ? document.createElement("div") : null;
-                          if (tmp) tmp.innerHTML = n.content;
-                          const preview = (tmp?.textContent || "").trim().slice(0, 20) || "(空)";
+                          const preview =
+                            n.content.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 20) || "(空)";
                           return (
                             <li key={n.id}>
                               <a href={`#${n.id}`} onClick={(e) => {
