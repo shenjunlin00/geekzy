@@ -15,37 +15,30 @@ import { getPublicSiteData } from "@/lib/public-data.functions";
 import { useAuth } from "@/lib/use-auth";
 
 export const Route = createFileRoute("/")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "资源目录" },
       { name: "description", content: "精选资源链接与笔记。" },
     ],
   }),
-  loader: async () => {
-    try {
-      return await getPublicSiteData();
-    } catch {
-      return { settings: DEFAULT_SETTINGS, notes: [] as Note[] };
-    }
-  },
   component: Index,
 });
 
 function Index() {
-  const loaderData = Route.useLoaderData() as { settings: SiteSettings; notes: Note[] };
-
+  // Hydrate instantly from localStorage cache, then refresh in background.
   const [settings, setSettings] = useState<SiteSettings>(
-    () => loaderData.settings ?? getCachedSettings() ?? DEFAULT_SETTINGS,
+    () => getCachedSettings() ?? DEFAULT_SETTINGS,
   );
-  const [notes, setNotes] = useState<Note[]>(
-    () => (loaderData.notes && loaderData.notes.length > 0 ? loaderData.notes : getCachedNotes() ?? []),
-  );
+  const [notes, setNotes] = useState<Note[]>(() => getCachedNotes() ?? []);
 
   const [query, setQuery] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [draft, setDraft] = useState("");
   const [draftTags, setDraftTags] = useState<string[]>([]);
+  const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState("");
   const [unlocked, setUnlockedState] = useState<boolean>(() => isUnlocked());
   const [hitIndex, setHitIndex] = useState(0);
   const [hits, setHits] = useState<HTMLElement[]>([]);
