@@ -11,7 +11,7 @@ import {
   DEFAULT_SETTINGS, fetchSettings, getCachedSettings, isUnlocked, type SiteSettings,
 } from "@/lib/site-store";
 import { createNote, fetchNotes, getCachedNotes, type Note } from "@/lib/notes";
-import { getPublicSiteData } from "@/lib/public-data.functions";
+// (Public-site SSR data fn no longer used; route is client-rendered for instant paint.)
 import { useAuth } from "@/lib/use-auth";
 
 export const Route = createFileRoute("/")({
