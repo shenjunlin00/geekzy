@@ -1,4 +1,39 @@
 import { useEffect, useRef } from "react";
+import { supabase } from "@/integrations/supabase/client";
+
+/** Downscale + re-encode a pasted image so notes stay light. */
+async function compressImage(file: File): Promise<Blob> {
+  const bitmap = await createImageBitmap(file);
+  const max = 1600;
+  const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  return await new Promise<Blob>((resolve) =>
+    canvas.toBlob((b) => resolve(b ?? file), "image/webp", 0.8),
+  );
+}
+
+/** Upload to the images bucket; returns a lightweight URL (falls back to data URL). */
+async function uploadImage(file: File): Promise<string> {
+  try {
+    const blob = await compressImage(file);
+    const name = `${crypto.randomUUID()}.webp`;
+    const { error } = await supabase.storage
+      .from("note-images")
+      .upload(name, blob, { contentType: "image/webp", upsert: true });
+    if (error) throw error;
+    return `/api/public/img/${name}`;
+  } catch (e) {
+    console.error("image upload failed, embedding inline", e);
+    return await new Promise<string>((resolve) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result));
+      r.readAsDataURL(file);
+    });
+  }
+}
 
 const URL_RE = /(https?:\/\/[^\s<]+)/g;
 
