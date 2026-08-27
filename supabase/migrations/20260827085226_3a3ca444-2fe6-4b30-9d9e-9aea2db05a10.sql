@@ -1,0 +1,2 @@
+create policy "note images upload" on storage.objects for insert to authenticated with check (bucket_id = 'note-images');
+create policy "note images update" on storage.objects for update to authenticated using (bucket_id = 'note-images') with check (bucket_id = 'note-images');
